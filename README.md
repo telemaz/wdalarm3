@@ -18,3 +18,4 @@ To keep track of an expedition in a danger zone.
 - An alarm delay should be set with many different possibility such as: a timeout, a schedule, a timeout determined by the ping payload.
 - Multiple delay could be set for an alarm. All this delay triggering a different action.
 - A ping should not necessarly postpone the alarm,
+- The system should be infinitly scalable
