@@ -38,7 +38,8 @@ Parameters:
 Payload max size : 4096 bytes\
 Parameters:
 ```
-{ "smtp":"https://example.com/API",
+{  "mailto":"username@example.com",
+   "smtp":"https://example.com/API",
    "encryption":"STARTTLS"/"TLS",
    "user":"username",
    "password":"passw0rd",
