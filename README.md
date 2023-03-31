@@ -59,3 +59,14 @@ Parameters:
 { "number":"+14445552357",
    "payload":"" } 
 ```
+
+## Backend
+
+The service if adopted by a larger quantity of user should be properly scalable. It should not cost to much money to run properly to prevent an early doom.
+As such the best option would probably be to use a serverless architecture. At least in the first period of production.
+
+
+The data could be stored in a Timeseries databases such as AWS Timestream coupled with AWS Lambda for the pings and actions.
+
+## Security
+There is a major security concerns for the data stored in database. Idealy, a zero-knowledge would be the best option. Unfortunatly, a great part of the use case require for a unknowing third party to receive the data. For it to be useful, the third party should be able to derypt those data without any information. 
