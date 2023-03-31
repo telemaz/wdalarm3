@@ -8,15 +8,16 @@ To keep track of an expedition in a danger zone.
 
 ## Functionnality
 - An action can be triggered when an alarm goes active.
+- An alarm timer is normaly reset when it is "pinged".
 - An action can be triggered when an alarm is "pinged".
 - The ping may contain a payload.
 - To be effective a ping may need to respect some condition, like a challenge response verification.
 - An historic of all pings, and alarms triggered with theres actions should be kept for a certain amount of time for consultation.
 - The action should be at least send an email, send an SMS, calling a REST API. 
-- The alarms should be trigger within 5 sec of the target.
+- The alarms should be trigger within 5 sec of the target time.
 - The target should be at minimum 15sec after being set.
 - An alarm delay should be set with many different possibility such as: a timeout, a schedule, a timeout determined by the ping payload.
-- Multiple delay could be set for an alarm. All this delay triggering a different action.
+- Multiple delay could be set for an alarm. All these delays triggering a different action.
 - A ping should not necessarly postpone the alarm,
 - The system should be infinitly scalable
 
@@ -43,6 +44,10 @@ Parameters:
    "encryption":"STARTTLS"/"TLS",
    "user":"username",
    "password":"passw0rd",
+   "to":"",
+   "cc":"",
+   "cci":"",
+   "subject":"XXX trigerred",
    "payload":"" } 
 ```
 
