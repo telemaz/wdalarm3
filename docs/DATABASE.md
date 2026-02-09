@@ -108,8 +108,7 @@ CREATE TABLE Alarms (
     CronExpression VARCHAR(100) NULL,
     
     -- Ping behavior
-    AllowTimerReset BOOLEAN NOT NULL DEFAULT TRUE,
-    PerPingResetOverride BOOLEAN NOT NULL DEFAULT FALSE,
+    AllowPingNoTimerReset BOOLEAN NOT NULL DEFAULT FALSE,
     
     -- Verification configuration
     VerificationMethod VARCHAR(20) NULL,

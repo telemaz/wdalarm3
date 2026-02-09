@@ -138,7 +138,7 @@ WdAlarm.Infrastructure/   # Data access & external services (DB Drivers, actions
 - .Net impementation not recommended for new design.
 
 #### AD-008: Separated alarm checking logic
-**Decision:** alarms reached within 1 minutes are checked every 20 ms for ping or reached point
+**Decision:** alarms reached within 1 minutes are checked every 10 ms for ping or reached point
 **Rationale:**
 - Highest precision
 - Usually the alarms should be pinged before reaching this point.
@@ -256,7 +256,7 @@ Timeline:
 
 **Levels:**
 1. **Alarm default**: `Alarm.AllowPingNoTimerReset` (boolean)
-2. **Ping request**: `Ping.ResetTimer` parameter
+2. **Ping request**: `Ping.ResetTimerRequested` parameter
 
 **Logic:**
 ```
@@ -264,7 +264,7 @@ if (!Alarm.AllowPingNoTimerReset) {
     timerReset = true;
 } else {
     // Always reset
-    timerReset = pingRequest.ResetTimer;
+    timerReset = pingRequest.ResetTimerRequested;
 }
 ```
 

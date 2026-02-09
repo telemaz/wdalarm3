@@ -42,7 +42,7 @@ Authorization: Bearer {access_token}
 
 | Token | Lifetime | Purpose |
 |-------|----------|---------|
-| Access Token | 15 minutes | API authentication |
+| Access Token | 25 hours | API authentication |
 | Refresh Token | 7 days | Renew access token |
 
 ---

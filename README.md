@@ -113,10 +113,10 @@ Detailed documentation is available in the `/docs` folder:
 ```
 wdalarm3/
 ├── src/
-│   ├── WdAlarm.Api/              # ASP.NET Core Web API + Background Workers
+│   ├── WdAlarm.Api/              # ASP.NET Core Web API
 │   │   ├── Controllers/          # REST API endpoints
 │   │   └── Program.cs
-│   ├── WdAlarm.Core/             # Domain models, interfaces, business logic
+│   ├── WdAlarm.Core/             # Domain models, interfaces, business logic + Background Workers
 │   │   ├── Entities/             # Domain entities (Alarm, Ping, etc.)
 │   │   ├── Commands/             # Command/Response patterns (NEW)
 │   │   ├── Interfaces/           # Service interfaces (includes ICommandBus)
@@ -286,7 +286,7 @@ Key settings in `appsettings.json`:
 
 ### MVP Approach
 - **Client-side encryption**: Sensitive action config (passwords, API keys) should be encrypted by client before sending
-- **JWT tokens**: Short-lived access tokens (15 min) with refresh tokens (7 days)
+- **JWT tokens**: Access tokens valid for 25 hours with refresh tokens (7 days)
 - **UUID alarm IDs**: Hard-to-guess identifiers for no-auth alarms
 - **HTTPS enforced**: All communication over TLS in production
 - **Input validation**: Strict validation and size limits on all inputs

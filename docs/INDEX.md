@@ -187,38 +187,6 @@ Separate action list that executes immediately (async) on every valid ping, inde
 
 ---
 
-## Architecture Decisions Summary
-
-| ID | Decision | Rationale |
-|----|----------|-----------|
-| AD-001 | Monolithic ASP.NET Core API | Simpler for MVP, can refactor later |
-| AD-002 | PostgreSQL 16 | Robust, JSONB support, free/open-source |
-| AD-003 | .NET 10 (LTS) | Latest LTS, long-term support |
-| AD-004 | Clean Architecture (3 layers) | Separation of concerns, testability |
-| AD-005 | ASP.NET Identity + JWT | Full-featured, industry standard |
-| AD-006 | Plugin architecture for SMS | Easy to add real providers later |
-| AD-007 | MailKit for email | No external dependencies, works with any SMTP |
-| AD-008 | 1-second polling | Guarantees <5 second precision |
-
----
-
-## Design Decisions Summary
-
-| ID | Decision | Key Point |
-|----|----------|-----------|
-| DD-001 | Before/after escalation timeline | Negative/positive offset minutes |
-| DD-002 | Explicit alarm cycle state machine | Complete audit trail, clean reset |
-| DD-003 | 3-level ping reset control | Alarm default + per-alarm override + per-ping |
-| DD-004 | Timeout and Schedule delay types | Dynamic payload deferred to v2 |
-| DD-005 | 4 verification methods | None, TOTP, RSA, ECDSA |
-| DD-006 | Action plugin with retry logic | Retriable vs non-retriable errors |
-| DD-007 | Separate on-ping actions | Independent from timeline actions |
-| DD-008 | Parallel action execution | Task.WhenAll for same-offset actions |
-| DD-009 | 2-level retention policy | Global default + per-alarm override |
-| DD-010 | UUID-based no-auth security | Obscurity + rate limiting (future) |
-
----
-
 ## Database Schema Summary
 
 **Core Tables:**
