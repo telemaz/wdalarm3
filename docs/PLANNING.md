@@ -20,15 +20,14 @@ This document captures the complete planning session, design decisions, and requ
 2. Alarm timer reset by pings
 3. Actions can be triggered ON ping reception
 4. Pings may contain payloads
-5. Challenge-response verification for pings
+5. Pings may need to be authenticated with Challenge-response verification or JWT
 6. Complete history of pings and triggered actions
 7. Action types: Email, SMS, REST API
 8. Trigger precision: within 5 seconds of target time
-9. Minimum delay: 15 seconds after being set
-10. Multiple delay types: timeout, schedule, dynamic from payload
-11. Multiple delays per alarm with different actions
-12. Ping not necessarily postponing alarm (configurable)
-13. Infinitely scalable architecture
+9. Multiple delay types: timeout, schedule, dynamic from payload
+10. Multiple delays per alarm with different actions
+11. Ping not necessarily postponing alarm (configurable)
+12. Infinitely scalable architecture
 
 #### Action Specifications
 
@@ -44,11 +43,9 @@ This document captures the complete planning session, design decisions, and requ
 - Max payload: 4096 bytes
 - Parameters: url, method (GET/POST/PUT/DELETE), user, password, payload
 
-#### Security Requirements
-- Major concerns about data stored in database
-- Zero-knowledge encryption ideal but challenging
-- Third parties need to decrypt data without information
-- Client-side encryption approach for MVP
+#### Security Challenges
+- Payload should be encrypted before reaching the service
+- If there is a leak, the payload and action endpoint can be leaked and linked to a user.
 
 ---
 
@@ -57,7 +54,7 @@ This document captures the complete planning session, design decisions, and requ
 ### Decision Log
 
 #### AD-001: Deployment Architecture
-**Decision:** Single monolithic ASP.NET Core Web API (not microservices)  
+**Decision:** Single monolithic ASP.NET Core Web API (not microservices/single executable file) but project structure should reflect potential micro-services architecture.
 **Rationale:** 
 - Simpler for MVP
 - Easier to develop and deploy
@@ -101,9 +98,9 @@ This document captures the complete planning session, design decisions, and requ
 
 **Structure:**
 ```
-WdAlarm.Api/              # Presentation layer
-WdAlarm.Core/             # Business logic & domain
-WdAlarm.Infrastructure/   # Data access & external services
+WdAlarm.Api/              # Presentation layer (web UI and API)
+WdAlarm.Core/             # Business logic (data models, background services, interfaces)
+WdAlarm.Infrastructure/   # Data access & external services (DB Drivers, actions logics)
 ```
 
 #### AD-005: Authentication
@@ -115,7 +112,7 @@ WdAlarm.Infrastructure/   # Data access & external services
 - Extensible for 2FA later
 
 **Token Strategy:**
-- Access token: 15 minutes (short-lived)
+- Access token: 25h (short-lived)
 - Refresh token: 7 days (persistent)
 
 **Alternatives Considered:**
@@ -132,26 +129,29 @@ WdAlarm.Infrastructure/   # Data access & external services
 - Plugin interface ensures future compatibility
 
 #### AD-007: Email Implementation
-**Decision:** Built-in SMTP client using MailKit  
+**Decision:** Built-in SMTP client using MailKit
 **Rationale:**
 - No external service dependencies
 - Works with any SMTP server
 - Users configure their own email settings
 - MailKit is industry standard, robust library
+- .Net impementation not recommended for new design.
 
-#### AD-008: Alarm Precision
-**Decision:** 1-second polling interval  
+#### AD-008: Separated alarm checking logic
+**Decision:** alarms reached within 1 minutes are checked every 20 ms for ping or reached point
 **Rationale:**
-- Guarantees <5 second precision requirement
-- Simple implementation (BackgroundService)
-- Acceptable CPU usage for expected scale
-- Database indexes make queries efficient
+- Highest precision
+- Usually the alarms should be pinged before reaching this point.
+- No need to check all alarms if they are nowhere near reached.
 
-**Alternatives Considered:**
-- 5-second polling with smart scheduling
-- Individual timers per alarm (complex, harder to scale)
 
-#### AD-009: Inter-Component Communication
+#### AD-009: Separate watcher for alarm target point actions
+**Decision:** Alarm target is processed indpendantly form other actions of alarm.
+**Rationale:**
+- Target represent the turning point and is more important than other alarms so they should impact its processing
+- priority of target actions over other pre and post actions.
+
+#### AD-010: Inter-Component Communication
 **Decision:** In-memory command bus for API-to-Worker communication (MVP) with migration path to NATS JetStream
 
 **Rationale:**
@@ -232,12 +232,13 @@ Timeline:
 - **No Active Cycle**: Alarm exists but not started
 - **Active Cycle**: Cycle running, actions scheduled
 - **Completed**: User pinged, cycle satisfied
+- **Failed**: User failed to ping before alarm point
 - **Cancelled**: Manual cancellation or alarm disabled
 
 **Cycle Creation Triggers:**
-1. User activates alarm (first time)
+1. User activates alarm (first time/new cycle)
 2. User pings and resets timer (new cycle)
-3. Previous cycle completes all actions (schedule-based alarms)
+3. Previous cycle reach alarm target point. (alarm failed/new cycle)
 
 **Database Tables:**
 - `AlarmCycles`: Tracks each cycle instance
@@ -251,24 +252,19 @@ Timeline:
 
 ### DD-003: Ping Reset Behavior
 
-**Decision:** Three-level control system for ping reset behavior
+**Decision:** Two-level control system for ping reset behavior
 
 **Levels:**
-1. **Alarm default**: `Alarm.AllowTimerReset` (boolean)
-2. **Per-ping override**: `Alarm.PerPingResetOverride` (boolean) enables per-ping control
-3. **Ping request**: `Ping.ResetTimer` parameter
+1. **Alarm default**: `Alarm.AllowPingNoTimerReset` (boolean)
+2. **Ping request**: `Ping.ResetTimer` parameter
 
 **Logic:**
 ```
-if (!alarm.AllowTimerReset) {
-    // Never reset, just log
-    timerReset = false;
-} else if (alarm.PerPingResetOverride) {
-    // Ping can override
-    timerReset = pingRequest.ResetTimer ?? true;
+if (!Alarm.AllowPingNoTimerReset) {
+    timerReset = true;
 } else {
     // Always reset
-    timerReset = true;
+    timerReset = pingRequest.ResetTimer;
 }
 ```
 
@@ -300,7 +296,7 @@ AlarmPoint = NextCronOccurrence(CronExpression, after: LastPingTime)
 
 **Schedule + Ping Interaction:**
 - Ping BEFORE scheduled time: Prevents that occurrence, moves to next
-- Ping AFTER scheduled time: Still recorded, but alarm already triggered
+- Ping AFTER scheduled time: Still recorded, but alarm already triggered, end previously failed alarm actions.
 - Example: Cron = "0 9 * * *" (9am daily)
   - User pings at 8:50am → Today's 9am alarm cancelled, moves to tomorrow 9am
   - User pings at 9:10am → Today's 9am already triggered, tomorrow 9am scheduled
@@ -312,7 +308,7 @@ AlarmPoint = NextCronOccurrence(CronExpression, after: LastPingTime)
 
 ### DD-005: Verification Methods
 
-**Decision:** Plugin architecture with 4 verification types
+**Decision:** Plugin architecture with 5 verification types
 
 **Types:**
 1. **None**: No authentication (public alarms)
@@ -328,13 +324,18 @@ AlarmPoint = NextCronOccurrence(CronExpression, after: LastPingTime)
 3. **RSA Signature**:
    - Client signs `(globalChallenge + timestamp)` with private key
    - Server verifies with stored public key (PEM format)
-   - Timestamp tolerance: ±5 minutes (prevents replay attacks)
+   - Timestamp tolerance: ±1 minutes (prevents replay attacks)
+   - Reject call with same timestamp as previously received in last 35s
    - Key size: 2048-bit minimum
 
 4. **ECDSA Signature**:
    - Same signing mechanism as RSA
    - Elliptic curve cryptography (smaller keys)
    - Curve: P-256 (secp256r1) or P-384
+
+5. **JWT tokken**
+   - Use the same auth method as user
+   - Require constant up-to-date tokené
 
 **Global Challenge System:**
 - 30-second rotating challenge (UUID)
@@ -364,11 +365,11 @@ public interface IActionPlugin
     );
 }
 
-public class ActionExecutionResult
+public interface ActionExecutionResult
 {
-    public bool Success { get; set; }
-    public string? ErrorMessage { get; set; }
-    public bool IsRetriable { get; set; }  // Key design point
+    bool Success { get; set; }
+    string? ErrorMessage { get; set; }
+    bool IsRetriable { get; set; }  // Key design point
 }
 ```
 
@@ -445,24 +446,6 @@ public class ActionExecutionResult
 ### DD-008: Parallel Action Execution
 
 **Decision:** Actions at same offset execute concurrently
-
-**Example:**
-```
-Alarm Point: 09:00
-Actions at offset 0:
-  - Email to emergency@example.com
-  - SMS to +1234567890
-  - REST API to https://api.example.com/alert
-```
-
-All three execute simultaneously using `Task.WhenAll()`.
-
-**Implementation:**
-```csharp
-var actionsAtTime = GetActionsScheduledAt(scheduledTime);
-var tasks = actionsAtTime.Select(a => ExecuteActionAsync(a));
-await Task.WhenAll(tasks);
-```
 
 **Rationale:**
 - Faster notification (all recipients get alert simultaneously)
@@ -555,7 +538,7 @@ See [DATABASE.md](DATABASE.md) for complete schema documentation.
    - Client-side encryption support
 
 5. **Indexes for performance**:
-   - `ActionExecutions.ScheduledTime` for 1-second polling
+   - `ActionExecutions.ScheduledTime` for alarm target point queries
    - `AlarmCycles.AlarmPointTime` for cycle queries
    - `Pings.AlarmId + ReceivedAt` for history queries
 
@@ -569,19 +552,31 @@ Storage: IMemoryCache (in-memory)
 Future: Redis for distributed systems
 ```
 
-#### 2. AlarmCycleManagerService
+#### 2. AlarmCycleTargetManagerService
 ```csharp
-Interval: 1 second
+Interval: 10 milliseconds
 Purpose: Execute scheduled actions
 Process:
-  1. Query: ActionExecutions WHERE Status=Pending AND ScheduledTime <= NOW()
+  1. Query: ActionExecutions WHERE Status=Pending AND ScheduledTime <= NOW() AND AlarmDelayActionsID.Offset=0
   2. Group by AlarmId for parallel execution
   3. Execute via IActionExecutor
   4. Update status (Success/Failed/Retry)
   5. Handle errors (log, alert sysadmin)
 ```
 
-#### 3. CycleCreationService
+#### 3. AlarmCycleManagerService
+```csharp
+Interval: 10 milliseconds
+Purpose: Execute scheduled actions
+Process:
+  1. Query: ActionExecutions WHERE Status=Pending AND ScheduledTime <= NOW() AND AlarmDelayActionsID.Offset <> 0
+  2. Group by AlarmId for parallel execution
+  3. Execute via IActionExecutor
+  4. Update status (Success/Failed/Retry)
+  5. Handle errors (log, alert sysadmin)
+```
+
+#### 4. CycleCreationService
 ```csharp
 Interval: 5 seconds
 Purpose: Create new alarm cycles
@@ -593,7 +588,7 @@ Process:
 Trigger: Also runs immediately after successful ping reset
 ```
 
-#### 4. HistoryCleanupService
+#### 5. HistoryCleanupService
 ```csharp
 Interval: Daily (configurable)
 Purpose: Delete old history records
@@ -620,7 +615,7 @@ Process:
   }
 }
 ```
-5. **Pagination**: `?page=1&pageSize=50` for list endpoints
+5. **Pagination**: `?page=1&pageSize=50` or HTTP Range parameters for list endpoints
 6. **Filtering**: `?from=2026-01-01&to=2026-12-31` for date ranges
 7. **Versioning**: `/api/v1/...` (future-proofing)
 
@@ -652,35 +647,7 @@ Process:
 
 ### Known Risks
 
-#### R-001: 1-Second Polling Performance
-**Risk:** 1-second polling with 10,000+ alarms may strain database
-
-**Mitigation:**
-- Database indexes on ScheduledTime
-- Efficient query: `WHERE Status=Pending AND ScheduledTime <= NOW() LIMIT 1000`
-- Connection pooling
-- Read replicas (future)
-- Monitoring: Log query times, alert if >100ms
-
-**Future Solution:**
-- Message queue (RabbitMQ) with delayed message plugin
-- Dedicated job scheduler (Hangfire, Quartz.NET)
-- Redis sorted set for time-based scheduling
-
-#### R-002: Action Execution Blocking
-**Risk:** If actions take >1 second, may block next cycle iteration
-
-**Mitigation:**
-- Async execution: Fire and forget pattern
-- Timeout on actions (30 seconds max)
-- Parallel execution within cycle
-- Status tracking prevents duplicate execution
-
-**Future Solution:**
-- Separate ActionExecutorWorkerService (multiple instances)
-- Queue-based action execution (FIFO)
-
-#### R-003: Email Deliverability
+#### R-001: Email Deliverability
 **Risk:** SMTP sending may be slow, fail, or hit rate limits
 
 **Mitigation:**
@@ -694,7 +661,7 @@ Process:
 - Queue with exponential backoff
 - Dead letter queue for permanent failures
 
-#### R-004: Challenge Synchronization
+#### R-002: Challenge Synchronization
 **Risk:** In-memory challenge doesn't work with multiple instances
 
 **Mitigation:**
@@ -706,7 +673,7 @@ Process:
 - Redis for shared challenge storage
 - Database table with frequent updates (fallback)
 
-#### R-005: Client-Side Encryption Usability
+#### R-003: Client-Side Encryption Usability
 **Risk:** Users may not know how to encrypt sensitive data
 
 **Mitigation:**
@@ -718,7 +685,7 @@ Process:
 - Server-side key management with user-provided key
 - Integration with password managers (1Password, Bitwarden)
 
-#### R-006: Cron Expression Validation
+#### R-004: Cron Expression Validation
 **Risk:** Invalid cron expressions may cause runtime errors
 
 **Mitigation:**
@@ -794,14 +761,14 @@ Process:
 - Custom notification channels
 - Analytics and monitoring
 
-**Decision:** REST API action type covers basic use case, dedicated webhook system for v2
+**Decision:** REST API action type covers basic use case, dedicated webhook system for v1.2
 
 ---
 
 ## Design Patterns Used
 
 ### 1. Repository Pattern
-**Location:** Infrastructure layer  
+**Location:** Infrastructure layer
 **Purpose:** Abstract data access, enable testing  
 **Example:** `IAlarmRepository`, `IPingRepository`
 
@@ -837,81 +804,68 @@ Process:
 ### MVP Complete When:
 
 #### Core Functionality
-- [x] Users can register and login with JWT
-- [x] Users can create alarms with timeout or schedule delay types
-- [x] Users can configure before/after action timeline
-- [x] Users can configure on-ping actions
-- [x] Users can choose verification method (None, TOTP, RSA, ECDSA)
-- [x] Users can ping alarms with optional payload
-- [x] System triggers actions within 5 seconds
-- [x] System enforces 15-second minimum delay
-- [x] Ping resets cycle and creates fresh timeline
-- [x] On-ping actions execute asynchronously
-- [x] Full history available
+- [ ] Users can register and login with JWT
+- [ ] Users can create alarms with timeout or schedule delay types
+- [ ] Users can configure before/after action timeline
+- [ ] Users can configure on-ping actions
+- [ ] Users can choose verification method (None, TOTP, RSA, ECDSA)
+- [ ] Users can ping alarms with optional payload
+- [ ] System triggers actions within 5 seconds
+- [ ] System enforces 15-second minimum delay
+- [ ] Ping resets cycle and creates fresh timeline
+- [ ] On-ping actions execute asynchronously
+- [ ] Full history available
 
 #### Technical Quality
-- [x] Swagger documentation accessible
-- [x] Docker Compose brings up PostgreSQL
-- [x] System runs continuously without crashes
-- [x] Database migrations work correctly
-- [x] Error handling and logging implemented
-- [x] Unit tests for core logic
-- [x] Integration tests for critical paths
+- [ ] Swagger documentation accessible
+- [ ] Docker Compose brings up PostgreSQL
+- [ ] System runs continuously without crashes
+- [ ] Database migrations work correctly
+- [ ] Error handling and logging implemented
+- [ ] Unit tests for core logic
+- [ ] Integration tests for critical paths
 
 #### Documentation
 - [x] README with quick start guide
 - [x] ARCHITECTURE.md with system design
 - [x] DATABASE.md with schema documentation
 - [x] API.md with endpoint examples
-- [x] Code comments on complex logic
+- [ ] Code comments on complex logic
 
 ---
 
 ## Timeline Estimate
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation
 - Solution structure and project setup
 - Database schema and migrations
 - ASP.NET Identity + JWT authentication
 - Domain models and interfaces
 
-### Phase 2: Core Features (Week 3-5)
+### Phase 2: Core Features
 - Verification plugins
 - Action plugins
 - Alarm cycle engine
 - Background services
 
-### Phase 3: API & Integration (Week 6)
+### Phase 3: API & Integration
 - REST API endpoints
 - Swagger documentation
 - Error handling
 - Logging
 
-### Phase 4: Testing & Polish (Week 7-8)
+### Phase 4: Testing & Polish
 - Unit and integration tests
 - Docker setup
 - Documentation
 - Bug fixes
 
-**Total Estimate:** 6-8 weeks for single developer
 
 ---
 
 ## Lessons Learned (Post-Implementation)
 
 *This section will be filled after MVP is complete*
-
----
-
-## Change Log
-
-| Date | Change | Rationale |
-|------|--------|-----------|
-| 2026-02-08 | Initial planning session | MVP requirements gathered |
-| 2026-02-08 | Added escalation timeline | Support before/after alarm point |
-| 2026-02-08 | Added on-ping actions | Support immediate action triggers |
-| 2026-02-08 | Finalized verification methods | TOTP, RSA, ECDSA, None |
-| 2026-02-08 | Defined alarm cycle state machine | Clean lifecycle management |
 
 ---
 
@@ -924,9 +878,3 @@ Process:
 - [Cronos Library](https://github.com/HangfireIO/Cronos)
 - [MailKit](https://github.com/jstedfast/MailKit)
 - [Otp.NET](https://github.com/kspearrin/Otp.NET)
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2026-02-08  
-**Status:** Planning Complete, Ready for Implementation

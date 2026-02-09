@@ -1278,9 +1278,3 @@ Import the provided Postman collection (future):
 - Includes all endpoints with example requests
 - Environment variables for base URL and tokens
 
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2026-02-08  
-**API Version:** v1  
-**Base URL:** https://localhost:5001/api

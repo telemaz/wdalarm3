@@ -20,11 +20,10 @@ The goal of this software is to facilitate triggering actions when users fail to
 - **Escalation timeline**: Actions can trigger BEFORE alarm point (warnings) and AFTER (escalation)
 - **Flexible ping behavior**: Configurable whether pings reset the timer or just log activity
 - **High precision**: Actions trigger within 5 seconds of scheduled time
-- **Minimum safety delay**: 15-second minimum before first action can trigger
 
 ### Verification Methods
 - **No authentication**: Public alarms that accept any ping
-- **TOTP (Time-based One-Time Passwords)**: Google Authenticator-style codes
+- **TOTP (Time-based One-Time Passwords)**: According to RFC6238, 30s, 6 digits
 - **RSA signatures**: Client signs challenge with private key, server verifies with public key
 - **ECDSA signatures**: Elliptic curve cryptography for smaller keys
 
@@ -53,7 +52,7 @@ The goal of this software is to facilitate triggering actions when users fail to
 **Key Components:**
 - **Command Bus**: <100ms latency for API-to-worker communication (request-reply pattern)
 - **CommandHandlerWorker**: Processes commands (cycle creation, activation, cancellation)
-- **AlarmCycleManagerWorker**: 1-second polling for precise action timing
+- **AlarmCycleManagerWorker**: 10-millisecond polling for precise action timing
 - **ActionExecutor**: Handles email, SMS, REST API with retry logic
 - **VerificationService**: Plugin architecture for TOTP, RSA, ECDSA auth
 
@@ -116,16 +115,15 @@ wdalarm3/
 ├── src/
 │   ├── WdAlarm.Api/              # ASP.NET Core Web API + Background Workers
 │   │   ├── Controllers/          # REST API endpoints
-│   │   ├── Workers/              # Background workers (IHostedService)
-│   │   │   ├── CommandHandlerWorker.cs       # Processes commands from bus
-│   │   │   ├── AlarmCycleManagerWorker.cs    # 1-second action polling
-│   │   │   ├── ChallengeRotationWorker.cs    # Challenge rotation
-│   │   │   └── HistoryCleanupWorker.cs       # Cleanup old records
 │   │   └── Program.cs
 │   ├── WdAlarm.Core/             # Domain models, interfaces, business logic
 │   │   ├── Entities/             # Domain entities (Alarm, Ping, etc.)
 │   │   ├── Commands/             # Command/Response patterns (NEW)
 │   │   ├── Interfaces/           # Service interfaces (includes ICommandBus)
+│   │   ├── Workers/              # Background workers (IHostedService)
+│   │   │   ├── AlarmCycleManagerWorker.cs    # 10-millisecond action polling
+│   │   │   ├── ChallengeRotationWorker.cs    # Challenge rotation
+│   │   │   └── HistoryCleanupWorker.cs       # Cleanup old records
 │   │   └── Enums/                # Enumerations
 │   └── WdAlarm.Infrastructure/   # Data access, external services
 │       ├── Messaging/            # Command bus implementation (NEW)

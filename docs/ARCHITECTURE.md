@@ -23,27 +23,45 @@ WatchDog Alarm is a deadman's switch / wellness check system built as a monolith
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         Clients                              │
+│                         Clients                             │
 │  (Mobile Apps, Web Browsers, IoT Devices, Scripts)          │
 └───────────────────────┬─────────────────────────────────────┘
                         │ HTTPS/REST
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    WdAlarm.Api Layer                         │
+│                    WdAlarm.Api Layer                        │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │              REST API Controllers                       │ │
+│  │              REST API Controllers                      │ │
 │  │  • AuthController  • AlarmsController                  │ │
 │  │  • PingController  • HistoryController                 │ │
 │  └────────────────┬───────────────────────────────────────┘ │
-│                   │                                          │
+│                   │                                         │
 │  ┌────────────────▼───────────────────────────────────────┐ │
 │  │      In-Memory Command Bus (Request-Reply)             │ │
 │  │  • Channel-based communication (<100ms)                │ │
-│  │  • Commands: CreateCycle, CancelCycle, ActivateAlarm  │ │
+│  │  • Commands: CreateCycle, CancelCycle, ActivateAlarm   │ │
 │  │  • Request-reply pattern with timeout                  │ │
-│  └────────────────┬───────────────────────────────────────┘ │
-│                   │                                          │
-│  ┌────────────────▼───────────────────────────────────────┐ │
+│  └────────────────────────────────────────────────────────┘ │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   WdAlarm.Core Layer                        │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                 Domain Entities                        │ │
+│  │  Alarm, AlarmCycle, Ping, ActionExecution, etc.        │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │              Service Interfaces                        │ │
+│  │  IVerificationService, IActionExecutor,                │ │
+│  │  IAlarmCycleService, IGlobalChallengeService           │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                Business Logic                          │ │
+│  │  Alarm cycle calculations, verification rules,         │ │
+│  │  action scheduling algorithms                          │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
 │  │           Background Workers (IHostedService)          │ │
 │  │  • CommandHandlerWorker      (processes commands)      │ │
 │  │  • AlarmCycleManagerWorker   (1-second polling)        │ │
@@ -54,46 +72,27 @@ WatchDog Alarm is a deadman's switch / wellness check system built as a monolith
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   WdAlarm.Core Layer                         │
+│              WdAlarm.Infrastructure Layer                   │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │                 Domain Entities                         │ │
-│  │  Alarm, AlarmCycle, Ping, ActionExecution, etc.       │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │              Service Interfaces                         │ │
-│  │  IVerificationService, IActionExecutor,                │ │
-│  │  IAlarmCycleService, IGlobalChallengeService          │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │                Business Logic                           │ │
-│  │  Alarm cycle calculations, verification rules,         │ │
-│  │  action scheduling algorithms                          │ │
-│  └────────────────────────────────────────────────────────┘ │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│              WdAlarm.Infrastructure Layer                    │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │          Data Access (EF Core)                          │ │
-│  │  • ApplicationDbContext                                 │ │
+│  │          Data Access (EF Core)                         │ │
+│  │  • ApplicationDbContext                                │ │
 │  │  • Repositories (IAlarmRepository, etc.)               │ │
-│  │  • Migrations                                           │ │
+│  │  • Migrations                                          │ │
 │  └────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │         Verification Plugins                            │ │
+│  │         Verification Plugins                           │ │
 │  │  • TOTPVerificationMethod                              │ │
 │  │  • RSASignatureVerificationMethod                      │ │
 │  │  • ECDSASignatureVerificationMethod                    │ │
 │  └────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │            Action Plugins                               │ │
+│  │            Action Plugins                              │ │
 │  │  • EmailActionPlugin (MailKit)                         │ │
 │  │  • SmsActionPlugin (Mock)                              │ │
 │  │  • RestApiActionPlugin (HttpClient)                    │ │
 │  └────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │         External Service Clients                        │ │
+│  │         External Service Clients                       │ │
 │  │  • SMTP Client (MailKit)                               │ │
 │  │  • HTTP Client (REST API actions)                      │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -101,8 +100,8 @@ WatchDog Alarm is a deadman's switch / wellness check system built as a monolith
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   PostgreSQL 16 Database                     │
-│  Tables: Alarms, AlarmCycles, Pings, ActionExecutions,     │
+│                   PostgreSQL 16 Database                    │
+│  Tables: Alarms, AlarmCycles, Pings, ActionExecutions,      │
 │          AlarmDelayActions, AlarmPingActions, etc.          │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -119,14 +118,15 @@ The system follows **Clean Architecture** (aka Onion Architecture, Hexagonal Arc
 ┌──────────────────────────────────────────┐
 │         Presentation Layer               │
 │         (WdAlarm.Api)                    │
-│  Controllers, Background Services        │
+│                 Controllers              │
 └──────────────────┬───────────────────────┘
                    │
                    ▼
 ┌──────────────────────────────────────────┐
 │           Core/Domain Layer              │
 │           (WdAlarm.Core)                 │
-│  Entities, Interfaces, Business Logic    │
+│  Entities, Interfaces, Business Logic,   │
+│           Background Services            │
 │  ✓ Framework-independent                 │
 │  ✓ Testable without infrastructure       │
 └──────────────────┬───────────────────────┘
@@ -172,7 +172,6 @@ The system follows **Clean Architecture** (aka Onion Architecture, Hexagonal Arc
 - Route requests to appropriate services
 - Validate input (data annotations, FluentValidation)
 - Handle authentication/authorization
-- Run background services
 - Return formatted responses (JSON)
 
 **Key Components:**
@@ -184,11 +183,6 @@ WdAlarm.Api/
 │   ├── PingController.cs          # Submit pings (uses ICommandBus)
 │   ├── ChallengeController.cs     # Get global challenge
 │   └── HistoryController.cs       # Query ping/action history
-├── Workers/
-│   ├── CommandHandlerWorker.cs        # Process commands from bus
-│   ├── AlarmCycleManagerWorker.cs     # 1-second polling for actions
-│   ├── ChallengeRotationWorker.cs     # Rotate challenge every 30s
-│   └── HistoryCleanupWorker.cs        # Delete old records daily
 ├── Models/
 │   ├── Requests/                  # DTOs for requests
 │   └── Responses/                 # DTOs for responses
@@ -218,6 +212,7 @@ WdAlarm.Api/
 - Implement domain logic (validation, calculations)
 - Define enumerations and value objects
 - NO dependencies on infrastructure or frameworks
+- Run background services
 
 **Key Components:**
 ```
@@ -255,6 +250,11 @@ WdAlarm.Core/
 │   ├── ActionType.cs              # Email, SMS, RestApi
 │   ├── AlarmCycleStatus.cs        # Active, Completed, Cancelled
 │   └── ActionExecutionStatus.cs   # Pending, Executing, Success, Failed
+├── Workers/
+│   ├── CommandHandlerWorker.cs        # Process commands from bus
+│   ├── AlarmCycleManagerWorker.cs     # Alarm monitoring
+│   ├── ChallengeRotationWorker.cs     # Rotate challenge every 30s
+│   └── HistoryCleanupWorker.cs        # Delete old records daily
 ├── DTOs/
 │   ├── VerificationResult.cs      # Verification outcome
 │   └── ActionExecutionResult.cs   # Action execution outcome
@@ -326,130 +326,7 @@ WdAlarm.Infrastructure/
 ---
 
 ## Core Components
-
-### 1. In-Memory Command Bus
-
-Fast inter-component communication system enabling <100ms latency between API and background workers.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│          Command Bus Architecture                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  API Controller                                              │
-│      │                                                       │
-│      │ 1. Send Command                                      │
-│      ▼                                                       │
-│  ┌────────────────────────────────────────┐                │
-│  │    ICommandBus.SendAsync<TResponse>    │                │
-│  │  • Creates TaskCompletionSource        │                │
-│  │  • Writes command to channel           │                │
-│  │  • Waits for response (500ms timeout)  │                │
-│  └────────────┬───────────────────────────┘                │
-│               │                                              │
-│               │ 2. Command flows through channel            │
-│               ▼                                              │
-│  ┌────────────────────────────────────────┐                │
-│  │  Bounded Channel<CommandEnvelope>      │                │
-│  │  • Capacity: 1000 commands             │                │
-│  │  • FullMode: Wait (backpressure)       │                │
-│  └────────────┬───────────────────────────┘                │
-│               │                                              │
-│               │ 3. Worker reads from channel                │
-│               ▼                                              │
-│  ┌────────────────────────────────────────┐                │
-│  │   CommandHandlerWorker                 │                │
-│  │  • Reads commands from channel         │                │
-│  │  • Routes to appropriate handler       │                │
-│  │  • Executes business logic             │                │
-│  │  • Completes TaskCompletionSource      │                │
-│  └────────────┬───────────────────────────┘                │
-│               │                                              │
-│               │ 4. Response flows back                      │
-│               ▼                                              │
-│  API Controller receives response                           │
-│  Returns to HTTP client                                     │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Key Features:**
-
-1. **Request-Reply Pattern**
-   - API sends command and waits for response
-   - Uses `TaskCompletionSource` for async coordination
-   - 500ms timeout (configurable)
-
-2. **Command Types**
-   ```csharp
-   public interface ICommand<TResponse>
-   {
-       Guid CommandId { get; }
-   }
-   
-   // Commands
-   CreateCycleCommand    → CreateCycleResponse
-   CancelCycleCommand    → CancelCycleResponse
-   ActivateAlarmCommand  → ActivateAlarmResponse
-   ```
-
-3. **Performance Characteristics**
-   - **Latency**: <100ms typical (30-50ms for cycle creation)
-   - **Throughput**: Handles 1000+ commands/sec
-   - **Memory**: Bounded channel prevents memory leaks
-   - **Backpressure**: Blocks API when queue full (prevents overload)
-
-4. **Error Handling**
-   - Command timeout → Returns error to API
-   - Worker crash → Command times out, API retries
-   - Queue full → API waits (backpressure)
-
-5. **Future Migration Path**
-   ```
-   MVP: InMemoryCommandBus (same process)
-     ↓
-   Scale: NatsCommandBus (NATS JetStream)
-     ↓
-   Benefits: Multiple workers, persistence, load balancing
-   ```
-
-**Implementation Example:**
-
-```csharp
-// PingController.cs
-var command = new CreateCycleCommand
-{
-    AlarmId = alarmId,
-    LastPingId = ping.Id
-};
-
-var result = await _commandBus.SendAsync<CreateCycleResponse>(
-    command, 
-    cancellationToken
-);
-
-if (!result.Success)
-{
-    _logger.LogError("Cycle creation failed: {Error}", result.Error);
-    return StatusCode(500);
-}
-
-// Continue with response...
-```
-
-**Why Command Bus?**
-
-| Requirement | Solution |
-|-------------|----------|
-| <100ms latency | In-memory channel (no network) |
-| Request-reply | TaskCompletionSource pattern |
-| Decoupled components | API doesn't directly call worker |
-| Scalability path | Easy swap to NATS later |
-| Testability | Mock ICommandBus in tests |
-
----
-
-### 2. Alarm Cycle Engine
+### 1. Alarm Cycle Engine
 
 The heart of the system, managing alarm lifecycles.
 
@@ -458,21 +335,21 @@ The heart of the system, managing alarm lifecycles.
 │           Alarm Cycle State Machine                     │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  [No Cycle] ──────────────┐                            │
+│  [No Cycle] ──────────────┐                             │
 │      ▲                    │                             │
 │      │                    │ User activates alarm        │
 │      │                    │ or ping resets timer        │
 │      │                    ▼                             │
 │      │              [Active Cycle]                      │
 │      │                    │                             │
-│      │     ┌──────────────┼──────────────┐             │
-│      │     │              │              │             │
-│      │     │ Ping         │ All actions  │ Manual      │
-│      │     │ received     │ completed    │ cancel      │
-│      │     ▼              ▼              ▼             │
-│      │  [Completed]   [Completed]   [Cancelled]        │
-│      │     │              │              │             │
-│      └─────┴──────────────┴──────────────┘             │
+│      │     ┌──────────────┼──────────────┐              │
+│      │     │              │              │              │
+│      │     │ Ping         │ All actions  │ Manual       │
+│      │     │ received     │ completed    │ cancel       │
+│      │     ▼              ▼              ▼              │
+│      │  [Completed]   [Failed]      [Cancelled]         │
+│      │     │              │              │              │
+│      └─────┴──────────────┴──────────────┘              │
 │            Create new cycle if alarm still active       │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -523,21 +400,21 @@ Plugin-based verification supporting multiple methods.
 │      ▼                                                  │
 │  Check VerificationMethod                               │
 │      │                                                  │
-│      ├─── None ────────────► Auto Pass                 │
+│      ├─── None ────────────► Auto Pass                  │
 │      │                            │                     │
-│      ├─── TOTP ────────────► Validate Code             │
+│      ├─── TOTP ────────────► Validate Code              │
 │      │                            │                     │
-│      ├─── RSA ─────────────► Verify Signature          │
+│      ├─── RSA ─────────────► Verify Signature           │
 │      │                            │                     │
-│      └─── ECDSA ───────────► Verify Signature          │
-│                                    │                     │
-│                                    ▼                     │
-│                              Pass or Fail                │
-│                                    │                     │
+│      └─── ECDSA ───────────► Verify Signature           │
+│                                    │                    │
+│                                    ▼                    │
+│                              Pass or Fail               │
+│                                    │                    │
 │                     ┌──────────────┴──────────────┐     │
 │                     ▼                             ▼     │
-│              Return Success              Return 401      │
-│              Record Ping                 with Error      │
+│              Return Success                Return 401   │
+│              Record Ping                   with Error   │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -545,39 +422,22 @@ Plugin-based verification supporting multiple methods.
 **Verification Methods:**
 
 **1. None (No Authentication)**
-```csharp
-public class NoneVerificationMethod : IVerificationMethod
-{
-    public VerificationMethodType Type => VerificationMethodType.None;
-    
-    public Task<VerificationResult> VerifyAsync(
-        string config, 
-        string proof, 
-        string? globalChallenge)
-    {
-        return Task.FromResult(new VerificationResult { IsValid = true });
-    }
-}
-```
+
+ Auto success
 
 **2. TOTP (Time-based One-Time Password)**
-```csharp
+
+According to RFC 6238
 Algorithm: HMAC-SHA1
 Window: 30 seconds
 Digits: 6
-Process:
-  1. Extract secret from alarm.VerificationConfig
-  2. Generate expected code for current time window
-  3. Compare with provided proof
-  4. Allow ±1 window for clock skew (90 seconds total)
-```
 
 **3. RSA Signature**
 ```csharp
 Algorithm: RSA-SHA256 (RS256)
 Key Size: 2048-bit minimum
 Process:
-  1. Parse proof: "BASE64_SIGNATURE|TIMESTAMP_ISO8601"
+  1. Parse proof: "BASE64_SIGNATURE|UTC_TIMESTAMP_ISO8601"
   2. Validate timestamp within ±5 minutes
   3. Construct message: globalChallenge + timestamp
   4. Verify signature using public key from alarm.VerificationConfig
@@ -613,35 +473,34 @@ Plugin-based action execution with retry logic.
 │      ▼                                                  │
 │  Determine Action Type                                  │
 │      │                                                  │
-│      ├─── Email ───────────► EmailActionPlugin         │
-│      │                            │                     │
-│      ├─── SMS ─────────────► SmsActionPlugin           │
-│      │                            │                     │
-│      └─── RestApi ─────────► RestApiActionPlugin       │
-│                                    │                     │
-│                                    ▼                     │
-│                            Execute Action                │
-│                                    │                     │
-│                     ┌──────────────┴──────────────┐     │
-│                     ▼                             ▼     │
-│              Success                        Failure      │
-│                │                                 │       │
-│                ▼                                 ▼       │
-│         Status = Success         Is Retriable?          │
-│         ExecutedTime = NOW             │                │
-│                                    ┌───┴───┐            │
-│                                    ▼       ▼            │
-│                                  Yes      No            │
-│                                   │        │            │
-│                           RetryCount++  Status=Failed   │
-│                           Wait 5s    Log Error          │
-│                           Retry                         │
+│      ├─── Email ───────────► EmailActionPlugin          │
+│      │                             │                    │
+│      ├─── SMS ─────────────► SmsActionPlugin            │
+│      │                             │                    │
+│      └─── RestApi ─────────► RestApiActionPlugin        │
+│                                    │                    │
+│                                    ▼                    │
+│                            Execute Action               │
+│                                    │                    │
+│                 ┌──────────────────┴────┐               │
+│                 ▼                       ▼               │
+│              Success                 Failure            │
+│                 │                       │               │
+│                 ▼                       ▼               │
+│         Status = Success          Is Retriable?         │
+│         ExecutedTime = NOW              │               │
+│                                    ┌────┴───┐           │
+│                                    ▼        ▼           │
+│                                   Yes       No          │
+│                                    │        │           │
+│                            RetryCount++  Status=Failed  │
+│                            Wait 5s        Log Error     │
+│                            Retry                        │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
 **Retry Logic:**
-```csharp
 MaxRetries: 3
 RetryDelay: 5 seconds
 Retriable Errors:
@@ -655,7 +514,6 @@ Non-Retriable Errors:
   - Authentication failures (invalid credentials)
   - HTTP 4xx errors (except 429 rate limit)
   - Invalid recipient addresses
-```
 
 ---
 
@@ -672,15 +530,15 @@ Rotating challenge for signature verification.
 │      │                                                  │
 │      ▼                                                  │
 │  Generate New Challenge                                 │
-│  (UUID: e.g., a1b2c3d4-e5f6-4789-0abc-def123456789)   │
+│  (UUID: e.g., a1b2c3d4-e5f6-4789-0abc-def123456789)     │
 │      │                                                  │
 │      ▼                                                  │
 │  Store in IMemoryCache                                  │
-│  Key: "GlobalChallenge:Current"                        │
-│  Expiration: 35 seconds (5s overlap)                   │
+│  Key: "GlobalChallenge:Current"                         │
+│  Expiration: 35 seconds (5s overlap)                    │
 │      │                                                  │
 │      ▼                                                  │
-│  Broadcast to all instances (future: Redis)            │
+│  Broadcast to all instances (future: Redis)             │
 │      │                                                  │
 │      ▼                                                  │
 │  Wait 30 seconds                                        │
@@ -691,7 +549,7 @@ Rotating challenge for signature verification.
 ```
 
 **Usage:**
-```csharp
+```
 // Client retrieves challenge
 GET /api/challenge
 Response: {
@@ -756,7 +614,7 @@ CycleCreationService    Core                Infrastructure       Database
   │                      │                        │                  │
   │ Timer (5s)           │                        │                  │
   │                      │                        │                  │
-  │ Find alarms without active cycle               │                  │
+  │ Find alarms without active cycle              │                  │
   ├─────────────────────►│                        │                  │
   │                      │ IAlarmRepository.GetWithoutActiveCycle    │
   │                      ├───────────────────────►│                  │
@@ -788,14 +646,14 @@ CycleCreationService    Core                Infrastructure       Database
   │                      │                        │                  │
 ```
 
-### Scenario 3: Alarm Triggers (1-Second Polling)
+### Scenario 3: Alarm Triggers
 
 ```
 AlarmCycleManager       Core                Infrastructure       Action Plugins
   │                      │                        │                  │
-  │ Timer (1s)           │                        │                  │
+  │ Timer (30s)          │                        │                  │
   │                      │                        │                  │
-  │ Find pending actions WHERE ScheduledTime <= NOW()                │
+  │ Find pending actions WHERE ScheduledTime + 60 <= NOW()           │
   ├─────────────────────►│                        │                  │
   │                      │ IActionExecutionRepository.GetPendingAsync│
   │                      ├───────────────────────►│                  │
@@ -805,7 +663,7 @@ AlarmCycleManager       Core                Infrastructure       Action Plugins
   │                      │                        │                  │
   │ Execute in parallel: │                        │                  │
   │                      │                        │                  │
-  │ For each action:     │                        │                  │
+  │ For each action where ScheduledTime <= NOW(): │                  │
   │ Set Status = Executing                        │                  │
   │                      │                        │                  │
   │ Execute via IActionExecutor                   │                  │
@@ -834,64 +692,55 @@ AlarmCycleManager       Core                Infrastructure       Action Plugins
 ### Scenario 4: User Pings Alarm (WITH COMMAND BUS)
 
 ```
-Client          API              CommandBus         Worker          Infrastructure      Database
-  │              │                    │               │                    │                │
-  │ POST /ping   │                    │               │                    │                │
-  ├─────────────►│                    │               │                    │                │
-  │              │ 1. Load Alarm      │               │                    │                │
-  │              ├────────────────────┼───────────────┼───────────────────►│                │
-  │              │                    │               │                    │ SELECT Alarm   │
-  │              │                    │               │                    ├───────────────►│
-  │              │◄───────────────────┼───────────────┼────────────────────┤                │
-  │              │                    │               │                    │                │
-  │              │ 2. Verify Ping     │               │                    │                │
-  │              │     (TOTP/Sig)     │               │                    │                │
-  │              │                    │               │                    │                │
-  │              │ 3. Save Ping       │               │                    │                │
-  │              ├────────────────────┼───────────────┼───────────────────►│                │
-  │              │                    │               │                    │ INSERT Ping    │
-  │              │                    │               │                    ├───────────────►│
-  │              │                    │               │                    │                │
-  │              │ 4. Send Command ──►│               │                    │                │
-  │              │   CreateCycle      │               │                    │                │
-  │              │   (WAIT)           │               │                    │                │
-  │              │                    │ 5. Channel    │                    │                │
-  │              │                    ├──────────────►│                    │                │
-  │              │                    │               │ 6. Handle Command  │                │
-  │              │                    │               │   CreateCycle      │                │
-  │              │                    │               ├───────────────────►│                │
-  │              │                    │               │                    │ Complete Cycle │
-  │              │                    │               │                    │ Cancel Actions │
-  │              │                    │               │                    │ Create Cycle   │
-  │              │                    │               │                    │ Insert Actions │
-  │              │                    │               │                    ├───────────────►│
-  │              │                    │               │◄───────────────────┤                │
-  │              │                    │               │                    │                │
-  │              │                    │ 7. Complete   │                    │                │
-  │              │                    │◄──────────────┤                    │                │
-  │              │ 8. Receive Response│               │                    │                │
-  │              │◄───────────────────┤               │                    │                │
-  │              │ { cycleId, ... }   │               │                    │                │
-  │              │                    │               │                    │                │
-  │              │ 9. Fire On-Ping Actions (async, no wait)               │                │
-  │              │                    │               │                    │                │
-  │  200 OK      │                    │               │                    │                │
-  │◄─────────────┤                    │               │                    │                │
-  │ { pingId,    │                    │               │                    │                │
-  │   newAlarm   │                    │               │                    │                │
-  │   Point }    │                    │               │                    │                │
-  │              │                    │               │                    │                │
+Client          API                                 Worker          Infrastructure      Database
+  │              │                                   │                    │                │
+  │ POST /ping   │                                   │                    │                │
+  ├─────────────►│                                   │                    │                │
+  │              │ 1. Load Alarm                     │                    │                │
+  │              ├───────────────────────────────────┼───────────────────►│                │
+  │              │                                   │                    │ SELECT Alarm   │
+  │              │                                   │                    ├───────────────►│
+  │              │◄──────────────────────────────────┼────────────────────┤                │
+  │              │                                   │                    │                │
+  │              │ 2. Verify Ping                    │                    │                │
+  │              │     (TOTP/Sig)                    │                    │                │
+  │              │                                   │                    │                │
+  │              │ 3. Save Ping                      │                    │                │
+  │              ├───────────────────────────────────┼───────────────────►│                │
+  │              │                                   │                    │ INSERT Ping    │
+  │              │                                   │                    ├───────────────►│
+  │              │ 4. Clear alarm if                 │                    │                │
+  │              │  already monitored                │                    │                │
+  │              ├──────────────────────────────────►│                    │                │
+  │  200 OK      │                                   │                    │                │
+  │◄─────────────┤                                   │                    │                │
+  │ { pingId,    │                                   │                    │                │
+  │   newAlarm   │                                   │                    │                │
+  │   Point }    │                                   │                    │                │
+  │              │                                   │                    │                │
+  │              │                                   │                    │                │
+  │              │ 5. Send Command ─────────────────►│                    │                │
+  │              │   CreateCycle                     │                    │                │
+  │              │   (WAIT)                          │                    │                │
+  │              │                                   │ 6. Handle Command  │                │
+  │              │                                   │   CreateCycle      │                │
+  │              │                                   ├───────────────────►│                │
+  │              │                                   │                    │ 7. Complete Cycle
+  │              │                                   │                    │ Cancel Actions │
+  │              │                                   │                    │ Create Cycle   │
+  │              │                                   │                    │ Insert Actions │
+  │              │                                   │                    ├───────────────►│
+  │              │                                   │                    │                │
+  │              │                                   │                    │                │
 ```
 
 **Timeline:**
-- Steps 1-3: ~10-20ms (DB queries, verification)
-- Steps 4-8: ~30-50ms (command bus round-trip)
+- Steps 1-4: ~10-20ms (DB queries, verification, notify worker)
+- Steps 4-7: ~30-50ms (Generate new cycle)
 - **Total: ~50-70ms** ✅ Under 100ms target
-- Step 9: Fire-and-forget (doesn't block response)
 
 **Key Points:**
-- API waits for Worker to complete cycle creation
-- Command bus provides request-reply pattern
+- API waits for ping to be properly processed
 - On-ping actions execute async (don't block response)
 - User receives confirmation with new alarm point time
 
@@ -899,99 +748,19 @@ Client          API              CommandBus         Worker          Infrastructu
 
 ## Background Services
 
-### 1. CommandHandlerWorker
+### 1. AlarmCycleManagerWorker
 
-**Purpose:** Process commands from the command bus (real-time operations)
+**Purpose:** Constantly running with 10ms pause to allow for some other action to process.
 
-**Pattern:** Event loop reading from channel
-
-**Algorithm:**
-```csharp
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-{
-    _logger.LogInformation("CommandHandlerWorker started");
-    
-    await foreach (var envelope in _commandBus.Reader.ReadAllAsync(stoppingToken))
-    {
-        try
-        {
-            var stopwatch = Stopwatch.StartNew();
-            await HandleCommandAsync(envelope, stoppingToken);
-            stopwatch.Stop();
-            
-            _logger.LogDebug(
-                "Command {CommandType} processed in {Duration}ms",
-                envelope.Command.GetType().Name,
-                stopwatch.ElapsedMilliseconds
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling command {CommandId}", envelope.CommandId);
-            _commandBus.CompleteCommand(envelope.CommandId, new CommandResult 
-            { 
-                Success = false, 
-                Error = ex.Message 
-            });
-        }
-    }
-}
-
-private async Task HandleCommandAsync(CommandEnvelope envelope, CancellationToken ct)
-{
-    using var scope = _serviceProvider.CreateScope();
-    
-    switch (envelope.Command)
-    {
-        case CreateCycleCommand cmd:
-            var cycleService = scope.ServiceProvider
-                .GetRequiredService<IAlarmCycleService>();
-            var response = await cycleService.CreateCycleAsync(cmd.AlarmId, cmd.LastPingId);
-            _commandBus.CompleteCommand(cmd.CommandId, response);
-            break;
-            
-        case CancelCycleCommand cmd:
-            var cycleService2 = scope.ServiceProvider
-                .GetRequiredService<IAlarmCycleService>();
-            await cycleService2.CancelActiveCycleAsync(cmd.AlarmId);
-            _commandBus.CompleteCommand(cmd.CommandId, new { Success = true });
-            break;
-            
-        case ActivateAlarmCommand cmd:
-            var activationService = scope.ServiceProvider
-                .GetRequiredService<IAlarmCycleService>();
-            var activationResponse = await activationService.ActivateAlarmAsync(cmd.AlarmId);
-            _commandBus.CompleteCommand(cmd.CommandId, activationResponse);
-            break;
-            
-        default:
-            throw new NotSupportedException($"Unknown command type: {envelope.Command.GetType()}");
-    }
-}
-```
-
-**Performance Characteristics:**
-- **Latency**: 30-50ms typical for cycle creation
-- **Throughput**: Handles 1000+ commands/sec
-- **Critical for**: Ping endpoint (requires immediate cycle creation)
-
-**Error Handling:**
-- Completes command with error response
-- API receives error and can return 500 to user
-- User can retry ping
-
----
-
-### 2. AlarmCycleManagerWorker
-
-**Purpose:** Execute scheduled actions with 1-second precision
-
-**Interval:** 1 second
+**Interval:** 10 millisecond
 
 **Algorithm:**
 ```csharp
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+
+protected override Start(CancellationToken stoppingToken)
 {
+    Thread alarmWorkerTh = new Thread(() =>
+    {
     while (!stoppingToken.IsCancellationRequested)
     {
         try
@@ -999,18 +768,17 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
             var now = DateTime.UtcNow;
             
             // Get pending actions
-            var pendingActions = await _actionExecutionRepository
-                .GetPendingActionsAsync(now);
+            var pendingActions = _actionExecutionRepository
+                .GetPendingActionsAsync(now).Result;
             
             // Group by alarm for parallel execution
             var groupedByAlarm = pendingActions.GroupBy(a => a.AlarmCycle.AlarmId);
             
             // Execute each group in parallel
-            await Task.WhenAll(
-                groupedByAlarm.Select(group => ExecuteActionsForAlarmAsync(group))
+            Parrallel.ForEach (actions.Where(a => a.DueTime <= now)(action) => ExecuteActionsForAlarmAsync(action))
             );
             
-            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            Task.Delay(TimeSpan.FromMilliSeconds(10), stoppingToken);
         }
         catch (Exception ex)
         {
@@ -1018,6 +786,9 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
             // Don't crash the service
         }
     }
+    });
+    alarmWorkerTh.IsBackgroundService = true;
+    alarmWorkerTh.Start();
 }
 ```
 
@@ -1028,7 +799,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 
 ---
 
-### 3. ChallengeRotationWorker
+### 2. ChallengeRotationWorker
 
 **Purpose:** Rotate global challenge every 30 seconds
 
@@ -1072,7 +843,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 
 ---
 
-### 4. HistoryCleanupWorker
+### 3. HistoryCleanupWorker
 
 **Purpose:** Delete old ping and action execution records
 
@@ -1258,7 +1029,7 @@ public class ActionExecutor : IActionExecutor
 │          ▼                                              │
 │     JWT Middleware validates token                      │
 │          │                                              │
-│          ├─── Valid ──────► Attach User to Context     │
+│          ├─── Valid ──────► Attach User to Context      │
 │          │                   Continue to Controller     │
 │          │                                              │
 │          └─── Invalid ────► Return 401 Unauthorized     │
@@ -1427,9 +1198,3 @@ builder.Services.AddHealthChecks()
 
 app.MapHealthChecks("/health");
 ```
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2026-02-08  
-**Status:** Architecture Documented, Ready for Implementation
