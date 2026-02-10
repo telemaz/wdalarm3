@@ -1,0 +1,33 @@
+### GET request to example server
+POST http://localhost:5242/api/auth/login
+Content-Type: application/json"
+
+{"email":"test@example.com","password":"Test@123"}
+ 
+
+### GET alarms
+GET http://localhost:5242/api/alarms
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJ1bmlxdWVfbmFtZSI6InRlc3RAZXhhbXBsZS5jb20iLCJlbWFpbCI6WyJ0ZXN0QGV4YW1wbGUuY29tIiwidGVzdEBleGFtcGxlLmNvbSJdLCJzdWIiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJqdGkiOiJjMGYwNDk2OS1jMWU0LTQ2NTEtODdhNC1hYTFlMGIwZTZkZGMiLCJuYmYiOjE3NzA3MDExODEsImV4cCI6MTc3MDc5MTE4MSwiaWF0IjoxNzcwNzAxMTgxLCJpc3MiOiJXZEFsYXJtLkFwaSIsImF1ZCI6IldkQWxhcm0uQ2xpZW50In0.Lg-KsrP6WkH_Ar196DC6dra_koj8_NtbbVmvz7LvCXk
+Content-Type: application/json"
+
+
+
+### GET alarms
+POST http://localhost:5242/api/alarms
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJ1bmlxdWVfbmFtZSI6InRlc3RAZXhhbXBsZS5jb20iLCJlbWFpbCI6WyJ0ZXN0QGV4YW1wbGUuY29tIiwidGVzdEBleGFtcGxlLmNvbSJdLCJzdWIiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJqdGkiOiJjMGYwNDk2OS1jMWU0LTQ2NTEtODdhNC1hYTFlMGIwZTZkZGMiLCJuYmYiOjE3NzA3MDExODEsImV4cCI6MTc3MDc5MTE4MSwiaWF0IjoxNzcwNzAxMTgxLCJpc3MiOiJXZEFsYXJtLkFwaSIsImF1ZCI6IldkQWxhcm0uQ2xpZW50In0.Lg-KsrP6WkH_Ar196DC6dra_koj8_NtbbVmvz7LvCXk
+Content-Type: application/json"
+
+{
+    "Name": "TestAlarm000",
+    "Description": "Alarm de test",
+    "DelayType": 0,
+    "TimeoutDuration": "01:00:00",
+    "AllowPingNoTimerReset": true,
+    "VerificationMethod": 0    
+}
+
+###
+POST http://localhost:5242/api/ping/b0051e36-4457-443f-8527-8b21efe1882a
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJ1bmlxdWVfbmFtZSI6InRlc3RAZXhhbXBsZS5jb20iLCJlbWFpbCI6WyJ0ZXN0QGV4YW1wbGUuY29tIiwidGVzdEBleGFtcGxlLmNvbSJdLCJzdWIiOiIwMTljNDU5YS03MjkwLTdjMWMtYTdiNy0wZGZmMjM4N2Q2NjkiLCJqdGkiOiJjMGYwNDk2OS1jMWU0LTQ2NTEtODdhNC1hYTFlMGIwZTZkZGMiLCJuYmYiOjE3NzA3MDExODEsImV4cCI6MTc3MDc5MTE4MSwiaWF0IjoxNzcwNzAxMTgxLCJpc3MiOiJXZEFsYXJtLkFwaSIsImF1ZCI6IldkQWxhcm0uQ2xpZW50In0.Lg-KsrP6WkH_Ar196DC6dra_koj8_NtbbVmvz7LvCXk
+
+{}

@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/WdAlarm.Api/WdAlarm.Api.csproj" />
+    <Project Path="src/WdAlarm.Core/WdAlarm.Core.csproj" />
+    <Project Path="src/WdAlarm.Infrastructure/WdAlarm.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <File Path="Manual-testing-scratchpad.http" />
+    <Project Path="tests/WdAlarm.IntegrationTests/WdAlarm.IntegrationTests.csproj" />
+    <Project Path="tests/WdAlarm.UnitTests/WdAlarm.UnitTests.csproj" />
+  </Folder>
+</Solution>

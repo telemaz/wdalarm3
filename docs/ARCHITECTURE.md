@@ -756,39 +756,69 @@ Client          API                                 Worker          Infrastructu
 
 **Algorithm:**
 ```csharp
-
-protected override Start(CancellationToken stoppingToken)
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
-    Thread alarmWorkerTh = new Thread(() =>
-    {
     while (!stoppingToken.IsCancellationRequested)
     {
         try
         {
-            var now = DateTime.UtcNow;
+            using var scope = _serviceProvider.CreateScope();
+            var actionExecutionRepo = scope.ServiceProvider.GetRequiredService<IActionExecutionRepository>();
+            var actionExecutor = scope.ServiceProvider.GetRequiredService<IActionExecutor>();
+
+            var now = DateTimeOffset.UtcNow;
             
-            // Get pending actions
-            var pendingActions = _actionExecutionRepository
-                .GetPendingActionsAsync(now).Result;
+            // Get pending actions that are due
+            var pendingActions = await actionExecutionRepo.GetPendingActionsAsync(now, stoppingToken);
             
-            // Group by alarm for parallel execution
-            var groupedByAlarm = pendingActions.GroupBy(a => a.AlarmCycle.AlarmId);
+            if (pendingActions.Any())
+            {
+                // Group by cycle for parallel execution
+                var groupedByCycle = pendingActions.GroupBy(a => a.AlarmCycleId);
+                
+                // Execute each group in parallel (fire and forget)
+                foreach (var group in groupedByCycle)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        using var execScope = _serviceProvider.CreateScope();
+                        var executor = execScope.ServiceProvider.GetRequiredService<IActionExecutor>();
+                        var repo = execScope.ServiceProvider.GetRequiredService<IActionExecutionRepository>();
+                        
+                        foreach (var action in group)
+                        {
+                            await ExecuteActionAsync(action, executor, repo, stoppingToken);
+                        }
+                    }, stoppingToken);
+                }
+            }
             
-            // Execute each group in parallel
-            Parrallel.ForEach (actions.Where(a => a.DueTime <= now)(action) => ExecuteActionsForAlarmAsync(action))
-            );
+            // Create cycles for alarms without active cycles
+            var alarmRepo = scope.ServiceProvider.GetRequiredService<IAlarmRepository>();
+            var cycleService = scope.ServiceProvider.GetRequiredService<IAlarmCycleService>();
             
-            Task.Delay(TimeSpan.FromMilliSeconds(10), stoppingToken);
+            var alarmsWithoutCycles = await alarmRepo.GetWithoutActiveCycleAsync(stoppingToken);
+            
+            foreach (var alarm in alarmsWithoutCycles)
+            {
+                try
+                {
+                    await cycleService.CreateCycleAsync(alarm, null, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error creating cycle for alarm {AlarmId}", alarm.Id);
+                }
+            }
+            
+            await Task.Delay(TimeSpan.FromMilliseconds(10), stoppingToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in AlarmCycleManagerService");
-            // Don't crash the service
+            _logger.LogError(ex, "Error in AlarmCycleManagerWorker");
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
         }
     }
-    });
-    alarmWorkerTh.IsBackgroundService = true;
-    alarmWorkerTh.Start();
 }
 ```
 
